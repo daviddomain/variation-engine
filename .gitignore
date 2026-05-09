@@ -13,3 +13,5 @@ wheels/
 *.pyc
 generated/
 samples/
+
+.codex-issue-bodies
