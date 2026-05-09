@@ -38,11 +38,21 @@ class PitchMetrics:
 
 
 @dataclass(frozen=True)
+class TimbreMetrics:
+    spectral_centroid: float
+    spectral_bandwidth: float
+    spectral_rolloff: float
+    spectral_flatness: float
+    spectral_contrast_mean: float
+
+
+@dataclass(frozen=True)
 class AnalysisResult:
     file: FileMetadata
     amplitude: AmplitudeMetrics
     transient: TransientMetrics
     pitch: PitchMetrics
+    timbre: TimbreMetrics
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)

@@ -54,10 +54,12 @@ class AnalyzeAudioFileTest(unittest.TestCase):
         self.assertIn("amplitude", result)
         self.assertIn("transient", result)
         self.assertIn("pitch", result)
+        self.assertIn("timbre", result)
         self.assertIn("sample_rate", result["file"])
         self.assertIn("peak_amplitude", result["amplitude"])
         self.assertIn("onset_time_ms", result["transient"])
         self.assertIn("pitch_confidence", result["pitch"])
+        self.assertIn("spectral_centroid", result["timbre"])
 
     def test_file_with_leading_silence_reports_more_leading_silence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
