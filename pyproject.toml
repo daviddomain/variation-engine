@@ -1,0 +1,13 @@
+[project]
+dependencies = [
+  "audiomentations",
+  "librosa",
+  "numpy",
+  "pedalboard",
+  "scipy",
+  "soundfile",
+]
+description = "Audio sample variation engine experiments"
+name = "variation-engine"
+requires-python = ">=3.13"
+version = "0.1.0"
