@@ -4,6 +4,7 @@ import numpy as np
 import soundfile as sf
 
 from variation_engine.analysis.models import AnalysisResult, AmplitudeMetrics, FileMetadata
+from variation_engine.analysis.transient import calculate_transient_metrics
 
 
 class AudioMetadataError(ValueError):
@@ -74,4 +75,5 @@ def analyze_audio_file(path: str | Path) -> AnalysisResult:
         sample_count=info.frames,
     )
     amplitude = calculate_amplitude_metrics(audio, sample_rate)
-    return AnalysisResult(file=metadata, amplitude=amplitude)
+    transient = calculate_transient_metrics(audio, sample_rate)
+    return AnalysisResult(file=metadata, amplitude=amplitude, transient=transient)
