@@ -28,10 +28,21 @@ class TransientMetrics:
 
 
 @dataclass(frozen=True)
+class PitchMetrics:
+    estimated_f0_hz: float | None
+    estimated_midi_note: int | None
+    estimated_note_name: str | None
+    pitch_confidence: float
+    is_probably_pitched: bool
+    pitch_stability: float
+
+
+@dataclass(frozen=True)
 class AnalysisResult:
     file: FileMetadata
     amplitude: AmplitudeMetrics
     transient: TransientMetrics
+    pitch: PitchMetrics
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
