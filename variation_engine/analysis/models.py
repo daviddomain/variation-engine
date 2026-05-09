@@ -47,12 +47,20 @@ class TimbreMetrics:
 
 
 @dataclass(frozen=True)
+class ProfileMetrics:
+    suggested_profile: str
+    confidence: float
+    reasons: list[str]
+
+
+@dataclass(frozen=True)
 class AnalysisResult:
     file: FileMetadata
     amplitude: AmplitudeMetrics
     transient: TransientMetrics
     pitch: PitchMetrics
     timbre: TimbreMetrics
+    profile: ProfileMetrics
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
