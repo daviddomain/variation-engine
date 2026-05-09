@@ -43,7 +43,7 @@ class AmplitudeMetricsTest(unittest.TestCase):
 
 
 class AnalyzeAudioFileTest(unittest.TestCase):
-    def test_result_keeps_file_section_and_adds_amplitude_section(self) -> None:
+    def test_result_keeps_file_section_and_adds_analysis_sections(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "sample.wav"
             sf.write(path, np.array([0.0, 0.5, 0.0], dtype=np.float32), 1000)
@@ -52,8 +52,10 @@ class AnalyzeAudioFileTest(unittest.TestCase):
 
         self.assertIn("file", result)
         self.assertIn("amplitude", result)
+        self.assertIn("transient", result)
         self.assertIn("sample_rate", result["file"])
         self.assertIn("peak_amplitude", result["amplitude"])
+        self.assertIn("onset_time_ms", result["transient"])
 
     def test_file_with_leading_silence_reports_more_leading_silence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
