@@ -1,6 +1,5 @@
-def main():
-    print("Hello from variation-engine!")
+from variation_engine.cli import main
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
