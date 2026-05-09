@@ -5,6 +5,7 @@ import soundfile as sf
 
 from variation_engine.analysis.models import AnalysisResult, AmplitudeMetrics, FileMetadata
 from variation_engine.analysis.pitch import calculate_pitch_metrics
+from variation_engine.analysis.profile import suggest_profile
 from variation_engine.analysis.timbre import calculate_timbre_metrics
 from variation_engine.analysis.transient import calculate_transient_metrics
 
@@ -80,10 +81,12 @@ def analyze_audio_file(path: str | Path) -> AnalysisResult:
     transient = calculate_transient_metrics(audio, sample_rate)
     pitch = calculate_pitch_metrics(audio, sample_rate)
     timbre = calculate_timbre_metrics(audio, sample_rate)
+    profile = suggest_profile(metadata, amplitude, transient, pitch, timbre)
     return AnalysisResult(
         file=metadata,
         amplitude=amplitude,
         transient=transient,
         pitch=pitch,
         timbre=timbre,
+        profile=profile,
     )
