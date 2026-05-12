@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 
@@ -175,6 +175,21 @@ class VariationPlannerCliTest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertFalse(output["status"]["rendering_enabled"])
         self.assertEqual(output["plan"]["estimated_output_sample_count"], 416)
+
+    def test_plan_command_with_invalid_source_note_prints_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "sample.wav"
+            sf.write(path, np.array([0.0, 0.5, 0.0], dtype=np.float32), 1000)
+            stdout = StringIO()
+            stderr = StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["plan", str(path), "--source-note", "H3"])
+
+        self.assertNotEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("error: Invalid note name", stderr.getvalue())
+        self.assertIn("H3", stderr.getvalue())
 
 
 def _analysis(

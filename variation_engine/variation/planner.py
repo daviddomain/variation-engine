@@ -138,7 +138,11 @@ def build_target_notes(
 ) -> tuple[TargetNote, ...]:
     pitch_mapping = preset.pitch_mapping
 
-    if pitch_mapping.strategy == MAJOR_THIRDS_AROUND_SOURCE and source_midi_note is not None:
+    if (
+        pitch_mapping.enabled
+        and pitch_mapping.strategy == MAJOR_THIRDS_AROUND_SOURCE
+        and source_midi_note is not None
+    ):
         max_offset = pitch_mapping.octave_radius * 12
         offsets = range(-max_offset, max_offset + 1, pitch_mapping.interval_semitones)
         if not pitch_mapping.include_source_note:
