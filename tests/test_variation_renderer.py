@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import replace
 from io import StringIO
 from pathlib import Path
 
@@ -27,11 +28,10 @@ class VariationRendererTest(unittest.TestCase):
     def test_render_audio_variant_keeps_length_and_delays_positive_timing_shift(self) -> None:
         audio = np.array([[1.0], [0.5], [0.25], [0.0]], dtype=np.float32)
         instruction = build_source_round_robin_instructions(seed=0)[0]
-        delayed_instruction = type(instruction)(
-            index=1,
+        delayed_instruction = replace(
+            instruction,
             gain_db=0.0,
             timing_shift_ms=2.0,
-            output_filename="rr_01.wav",
         )
 
         rendered = render_audio_variant(audio, sample_rate=1000, instruction=delayed_instruction)
@@ -42,11 +42,10 @@ class VariationRendererTest(unittest.TestCase):
     def test_render_audio_variant_advances_negative_timing_shift(self) -> None:
         audio = np.array([[1.0], [0.5], [0.25], [0.125]], dtype=np.float32)
         instruction = build_source_round_robin_instructions(seed=0)[0]
-        advanced_instruction = type(instruction)(
-            index=1,
+        advanced_instruction = replace(
+            instruction,
             gain_db=0.0,
             timing_shift_ms=-2.0,
-            output_filename="rr_01.wav",
         )
 
         rendered = render_audio_variant(audio, sample_rate=1000, instruction=advanced_instruction)
@@ -57,11 +56,10 @@ class VariationRendererTest(unittest.TestCase):
     def test_render_audio_variant_scales_positive_gain_to_prevent_clipping(self) -> None:
         audio = np.array([[1.0], [-1.0], [0.5]], dtype=np.float32)
         instruction = build_source_round_robin_instructions(seed=0)[0]
-        boosted_instruction = type(instruction)(
-            index=1,
+        boosted_instruction = replace(
+            instruction,
             gain_db=0.5,
             timing_shift_ms=0.0,
-            output_filename="rr_01.wav",
         )
 
         rendered = render_audio_variant(audio, sample_rate=1000, instruction=boosted_instruction)
@@ -97,6 +95,7 @@ class VariationRendererTest(unittest.TestCase):
             [f"rr_{index:02d}.wav" for index in range(1, 9)],
         )
         self.assertEqual(output["round_robin_count"], 8)
+        self.assertEqual(output["selected_render_recipe_id"], "unknown_conservative")
         self.assertEqual(len(output["files"]), 8)
 
         self.assertEqual(first_rate, original_rate)
@@ -132,6 +131,31 @@ class VariationRendererTest(unittest.TestCase):
                 second_audio, second_rate = sf.read(second_dir / f"rr_{index:02d}.wav", always_2d=True)
                 self.assertEqual(first_rate, second_rate)
                 np.testing.assert_array_equal(first_audio, second_audio)
+
+    def test_render_command_selects_category_recipe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            input_path = Path(tmp_dir) / "sample.wav"
+            output_dir = Path(tmp_dir) / "generated"
+            sf.write(input_path, _stereo_sample(sample_rate=8000), 8000, subtype="FLOAT")
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "render",
+                        str(input_path),
+                        "--output",
+                        str(output_dir),
+                        "--category",
+                        "plucked_string",
+                        "--seed",
+                        "11",
+                    ]
+                )
+
+        output = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(output["selected_render_recipe_id"], "plucked_string")
 
     def test_render_command_rejects_invalid_source_note(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

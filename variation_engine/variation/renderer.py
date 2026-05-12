@@ -1,24 +1,23 @@
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from random import Random
 
 import numpy as np
 import soundfile as sf
 
 from variation_engine.analysis.models import AnalysisResult
+from variation_engine.variation.render_recipes import (
+    ROUND_ROBIN_RENDER_RECIPE_BY_ID,
+    UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID,
+    RoundRobinRenderInstruction,
+    RoundRobinRenderRecipe,
+    generate_round_robin_render_instructions,
+    select_round_robin_render_recipe,
+)
 from variation_engine.variation.planner import VariationPlanResult, create_variation_plan
 
 
 DEFAULT_RENDER_SEED = 0
 SOURCE_ROUND_ROBIN_COUNT = 8
-
-
-@dataclass(frozen=True)
-class RoundRobinRenderInstruction:
-    index: int
-    gain_db: float
-    timing_shift_ms: float
-    output_filename: str
 
 
 @dataclass(frozen=True)
@@ -36,6 +35,7 @@ class RenderResult:
     output_dir: str
     seed: int
     selected_preset_id: str
+    selected_render_recipe_id: str
     round_robin_count: int
     files: tuple[RenderedFileSummary, ...]
     warnings: tuple[str, ...]
@@ -46,28 +46,16 @@ class RenderResult:
 
 def build_source_round_robin_instructions(
     seed: int = DEFAULT_RENDER_SEED,
+    recipe: RoundRobinRenderRecipe | None = None,
 ) -> tuple[RoundRobinRenderInstruction, ...]:
     """Build deterministic source-only round-robin instructions."""
-    variable_variations = [
-        (0.3, 1.0),
-        (-0.3, -1.0),
-        (0.5, 2.0),
-        (-0.5, -2.0),
-        (0.2, 0.0),
-        (-0.2, 1.0),
-        (0.1, -1.0),
+    selected_recipe = recipe or ROUND_ROBIN_RENDER_RECIPE_BY_ID[
+        UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID
     ]
-    Random(seed).shuffle(variable_variations)
-    variation_values = [(0.0, 0.0), *variable_variations]
-
-    return tuple(
-        RoundRobinRenderInstruction(
-            index=index,
-            gain_db=gain_db,
-            timing_shift_ms=timing_shift_ms,
-            output_filename=f"rr_{index:02d}.wav",
-        )
-        for index, (gain_db, timing_shift_ms) in enumerate(variation_values, start=1)
+    return generate_round_robin_render_instructions(
+        recipe=selected_recipe,
+        count=SOURCE_ROUND_ROBIN_COUNT,
+        seed=seed,
     )
 
 
@@ -106,7 +94,11 @@ def render_source_round_robins(
     output_path.mkdir(parents=True, exist_ok=True)
 
     input_info = sf.info(input_path)
-    instructions = build_source_round_robin_instructions(seed)
+    recipe = select_round_robin_render_recipe(
+        category_id=category_id,
+        profile_id=plan.selected_preset.target_profile,
+    )
+    instructions = build_source_round_robin_instructions(seed=seed, recipe=recipe)
     output_subtype = _wav_output_subtype(input_info.subtype)
     rendered_files = tuple(
         _write_round_robin_file(
@@ -124,6 +116,7 @@ def render_source_round_robins(
         output_dir=str(output_path),
         seed=seed,
         selected_preset_id=plan.selected_preset.id,
+        selected_render_recipe_id=recipe.id,
         round_robin_count=SOURCE_ROUND_ROBIN_COUNT,
         files=rendered_files,
         warnings=_render_warnings(plan),
