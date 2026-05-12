@@ -14,6 +14,23 @@ from variation_engine.variation.presets import (
     get_variation_rule_preset,
     get_variation_rule_preset_for_profile,
 )
+from variation_engine.variation.planner import (
+    AnalysisPitchSummary,
+    AnalysisProfileSummary,
+    FilePlanSummary,
+    InvalidNoteNameError,
+    SelectedCategorySummary,
+    SelectedPresetSummary,
+    SourceNote,
+    TargetNote,
+    VariationPlan,
+    VariationPlanResult,
+    VariationPlanStatus,
+    build_target_notes,
+    create_variation_plan,
+    midi_note_to_name,
+    parse_note_name,
+)
 
 __all__ = [
     "DEFAULT_VARIATION_RULE_PRESET_ID",
@@ -28,4 +45,19 @@ __all__ = [
     "VariationTransformRanges",
     "get_variation_rule_preset",
     "get_variation_rule_preset_for_profile",
+    "AnalysisPitchSummary",
+    "AnalysisProfileSummary",
+    "FilePlanSummary",
+    "InvalidNoteNameError",
+    "SelectedCategorySummary",
+    "SelectedPresetSummary",
+    "SourceNote",
+    "TargetNote",
+    "VariationPlan",
+    "VariationPlanResult",
+    "VariationPlanStatus",
+    "build_target_notes",
+    "create_variation_plan",
+    "midi_note_to_name",
+    "parse_note_name",
 ]

@@ -4,6 +4,7 @@ import sys
 from collections.abc import Sequence
 
 from variation_engine.analysis.io import AudioMetadataError, analyze_audio_file
+from variation_engine.variation.planner import InvalidNoteNameError, create_variation_plan
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,6 +17,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     analyze_parser.add_argument("path", help="Path to a WAV, AIFF, FLAC, or supported audio file.")
 
+    plan_parser = subparsers.add_parser(
+        "plan",
+        help="Analyze an audio file and print a dry-run variation plan as JSON.",
+    )
+    plan_parser.add_argument("path", help="Path to a WAV, AIFF, FLAC, or supported audio file.")
+    plan_parser.add_argument(
+        "--category",
+        help="Optional instrument category id used to select the default variation profile.",
+    )
+    plan_parser.add_argument(
+        "--source-note",
+        help="Optional source note override such as C3, C#3, or Db3.",
+    )
+
     return parser
 
 
@@ -27,6 +42,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             result = analyze_audio_file(args.path)
         except AudioMetadataError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+        print(json.dumps(result.to_dict(), indent=2))
+        return 0
+
+    if args.command == "plan":
+        try:
+            analysis = analyze_audio_file(args.path)
+            result = create_variation_plan(
+                analysis,
+                category_id=args.category,
+                source_note=args.source_note,
+            )
+        except (AudioMetadataError, InvalidNoteNameError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
 
