@@ -39,6 +39,36 @@ class VariationRendererTest(unittest.TestCase):
         self.assertEqual(rendered.shape, audio.shape)
         np.testing.assert_allclose(rendered[:, 0], [0.0, 0.0, 1.0, 0.5])
 
+    def test_render_audio_variant_advances_negative_timing_shift(self) -> None:
+        audio = np.array([[1.0], [0.5], [0.25], [0.125]], dtype=np.float32)
+        instruction = build_source_round_robin_instructions(seed=0)[0]
+        advanced_instruction = type(instruction)(
+            index=1,
+            gain_db=0.0,
+            timing_shift_ms=-2.0,
+            output_filename="rr_01.wav",
+        )
+
+        rendered = render_audio_variant(audio, sample_rate=1000, instruction=advanced_instruction)
+
+        self.assertEqual(rendered.shape, audio.shape)
+        np.testing.assert_allclose(rendered[:, 0], [0.25, 0.125, 0.0, 0.0])
+
+    def test_render_audio_variant_scales_positive_gain_to_prevent_clipping(self) -> None:
+        audio = np.array([[1.0], [-1.0], [0.5]], dtype=np.float32)
+        instruction = build_source_round_robin_instructions(seed=0)[0]
+        boosted_instruction = type(instruction)(
+            index=1,
+            gain_db=0.5,
+            timing_shift_ms=0.0,
+            output_filename="rr_01.wav",
+        )
+
+        rendered = render_audio_variant(audio, sample_rate=1000, instruction=boosted_instruction)
+
+        self.assertLessEqual(float(np.max(np.abs(rendered))), 1.0)
+        np.testing.assert_allclose(rendered[:, 0], [1.0, -1.0, 0.5], atol=1e-7)
+
     def test_render_command_writes_exactly_eight_stereo_wavs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             input_path = Path(tmp_dir) / "sample.wav"

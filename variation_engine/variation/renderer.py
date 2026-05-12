@@ -79,7 +79,12 @@ def render_audio_variant(
     """Apply safe deterministic gain and timing offsets to an audio buffer."""
     shifted_audio = _shift_audio(audio, sample_rate, instruction.timing_shift_ms)
     gain_factor = 10 ** (instruction.gain_db / 20.0)
-    return shifted_audio * gain_factor
+    gained_audio = shifted_audio * gain_factor
+    peak = float(np.max(np.abs(gained_audio))) if gained_audio.size else 0.0
+    if peak > 1.0:
+        return gained_audio / peak
+
+    return gained_audio
 
 
 def render_source_round_robins(
