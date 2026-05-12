@@ -8,11 +8,67 @@ The long-term goal is to turn one input sample into subtle musical variations, s
 Sample -> Analysis -> Instrument Type -> Variation Rules -> DSP Chain -> Optional AI Enhancement -> Export
 ```
 
-## Current Phase 1 Status
+The project is still in Phase 1. It is an audio analysis and rendering lab, not a complete sampler, VST, DAW integration, or playable instrument builder.
 
-Phase 1 is an audio analysis lab. It focuses on analyzing one input sample and returning a structured JSON result that future variation rules can use.
+## Current Pipeline Status
 
-The project does not currently generate samples, process audio through DSP, render WAV files, provide a UI, or integrate with plugins, VSTs, or DAWs. The current CLI analyzes audio and can produce a dry-run variation plan as structured JSON.
+The current CLI supports three steps:
+
+```txt
+Analyze sample -> Create dry-run variation plan -> Render source-only round-robins
+```
+
+Implemented now:
+
+- structured JSON analysis for one input sample
+- dry-run variation planning as JSON
+- first source-only round-robin WAV renderer
+- deterministic rendering with `--seed`
+
+Not implemented yet:
+
+- velocity layer rendering
+- pitch-mapped target-note rendering
+- major-third tonal expansion rendering
+- complete playable instrument export
+- VST, plugin, UI, DAW, AI processing, or export metadata
+
+## Setup
+
+Use Python with `uv`.
+
+```bash
+uv sync
+```
+
+Useful local checks:
+
+```bash
+uv run python --version
+uv run python -c "import librosa, soundfile, pedalboard, audiomentations, numpy, scipy; print('ok')"
+```
+
+## CLI Commands
+
+The project currently exposes:
+
+```bash
+uv run python main.py analyze <path-to-sample>
+uv run python main.py plan <path-to-sample>
+uv run python main.py render <path-to-sample> --output generated
+```
+
+Supported input depends on the audio formats available through `soundfile`, such as WAV, AIFF, and FLAC.
+
+## Analyze a Sample
+
+Run:
+
+```bash
+uv run python main.py analyze path/to/sample.wav
+```
+
+The command prints formatted JSON to stdout. On unreadable or missing files, it prints an error to stderr and exits with a non-zero status.
 
 The analyzer currently returns these top-level JSON sections:
 
@@ -25,45 +81,19 @@ timbre
 profile
 ```
 
-The analysis is intentionally practical rather than academically perfect. Its job is to collect enough information for later musical decisions, such as how much pitch, attack, timbre, or space variation may be safe for a sample.
-
-The next Phase 1 layer is now represented as configuration only:
-
-```txt
-Analysis Result -> Internal Profile / Instrument Category -> Variation Rule Preset -> Dry-run Variation Plan -> DSP Rendering later
-```
-
-## Setup
-
-Use Python with `uv`.
-
-```bash
-uv sync
-```
-
-## Analyze a Sample
-
-Run the analyzer with:
-
-```bash
-uv run python main.py analyze path/to/sample.wav
-```
-
-Supported input depends on the audio formats available through `soundfile`, such as WAV, AIFF, and FLAC.
-
-The command prints formatted JSON to stdout. On unreadable or missing files, it prints an error to stderr and exits with a non-zero status.
+The analysis is practical rather than academically perfect. Its job is to collect enough information for later musical decisions, such as how much pitch, attack, timbre, or space variation may be safe for a sample.
 
 ## Dry-run Variation Planning
 
-The project includes a dry-run variation planner:
+Run:
 
 ```bash
 uv run python main.py plan path/to/sample.wav
 ```
 
-The planner reuses the existing analyzer, selects a variation rule preset, calculates target notes, and estimates the number of samples that would be generated in a future rendering step.
+`plan` is dry-run only. It analyzes the sample, selects a variation rule preset, calculates target notes, estimates the number of planned samples, and prints JSON to stdout.
 
-It prints JSON to stdout only. It does not generate WAV files, process audio through DSP, or render samples yet.
+It does not write WAV files and does not process audio.
 
 Optional category override:
 
@@ -77,27 +107,83 @@ Optional source note override:
 uv run python main.py plan path/to/sample.wav --category piano_keys --source-note C3
 ```
 
-If no category is provided, the planner uses the analyzer's suggested internal profile.
+If no category is provided, the planner uses the analyzer's suggested internal profile. If `--category` is provided, the category's default profile is used to select the variation rule preset. If `--source-note` is provided, it overrides the detected pitch.
 
-If `--category` is provided, the category's default profile is used to select the variation rule preset.
+## Source-only Round-robin Rendering
 
-If `--source-note` is provided, it overrides the detected pitch.
+Run:
 
-### Current Planning Strategies
-
-`source_only` plans one target note:
-
-```txt
-1 target note x 8 round-robin variants x 4 velocity layers = 32 planned samples
+```bash
+uv run python main.py render path/to/sample.wav --output generated
 ```
 
-`major_thirds_around_source` plans anchor notes in major-third steps around the source note.
-
-With +/-2 octaves:
+`render` now creates WAV files, but only for source-only round-robin variants. It writes exactly eight files:
 
 ```txt
-13 target notes x 8 round-robin variants x 4 velocity layers = 416 planned samples
+generated/
+  rr_01.wav
+  rr_02.wav
+  rr_03.wav
+  rr_04.wav
+  rr_05.wav
+  rr_06.wav
+  rr_07.wav
+  rr_08.wav
 ```
+
+The first renderer is intentionally limited:
+
+- source-only rendering
+- 8 round-robin variants
+- gain and timing micro-variations only
+- no velocity layers
+- no pitch-mapped target notes
+- no major-third expansion rendering
+
+Rendering is deterministic with `--seed`:
+
+```bash
+uv run python main.py render path/to/sample.wav --output generated --seed 11
+```
+
+The command prints a JSON render summary to stdout. For presets that plan velocity layers or pitch-mapped notes, the renderer reports warnings because those planned dimensions are skipped by the current source-only renderer.
+
+Optional category and source note overrides are available here too:
+
+```bash
+uv run python main.py render path/to/sample.wav --output generated --category piano_keys --source-note C3
+```
+
+These options affect preset selection and warnings, but they do not make the current renderer create velocity layers or pitch-mapped notes.
+
+## Variation Planning Model
+
+The variation rule preset schema lives in:
+
+```txt
+variation_engine/variation/presets.py
+```
+
+Current preset IDs:
+
+```txt
+percussive
+tonal_percussive
+sustained_tonal
+sfx_texture
+unknown
+```
+
+Each preset defines:
+
+- round-robin count
+- velocity layer count
+- pitch mapping strategy
+- transform ranges for micropitch, timing, attack, timbre, saturation, gain, and space
+
+The planner can describe more than the renderer currently writes. For example, `source_only` plans one target note with 8 round-robin variants and 4 velocity layers, for 32 planned samples. The current renderer only writes the 8 source-note round-robin WAV files.
+
+`major_thirds_around_source` is planned for future tonal expansion. With +/-2 octaves it can describe anchor notes in major-third steps around the source note, but those pitch-mapped target notes are not rendered yet.
 
 Example for source note C3:
 
@@ -109,7 +195,34 @@ C4, E4, G#4,
 C5
 ```
 
-## Example JSON Output
+## Instrument Category Schema
+
+The current instrument category schema lives in:
+
+```txt
+variation_engine/analysis/categories.py
+```
+
+These categories are intended for user-facing selection and later mapping to variation rules:
+
+```txt
+piano_keys
+plucked_string
+bowed_string
+guitar_bass
+drum_percussion
+synth_lead
+synth_pad
+vocal_voice
+fx_foley_texture
+unknown_auto
+```
+
+Hornbostel-Sachs is used only as an optional internal hint for future rule-system design. It is not the main user-facing category system.
+
+`FX / Foley / Texture` is a first-class category because sound-design material does not fit cleanly into traditional instrument taxonomies.
+
+## Example Analysis JSON
 
 This is a representative output shape. The values are examples only and are not guaranteed for every sample.
 
@@ -162,107 +275,20 @@ This is a representative output shape. The values are examples only and are not 
 }
 ```
 
-## Analysis Sections
+## Next Planned Milestones
 
-`file` contains basic audio file metadata: path, sample rate, channel count, duration, and sample count.
+Likely next steps:
 
-`amplitude` contains whole-file level metrics. Peak amplitude and RMS provide simple loudness proxies, crest factor describes the relationship between peak and RMS level, and leading/trailing silence estimate silent regions at the start and end of the file.
-
-`transient` describes onset and attack behavior. It includes the estimated onset time, attack duration, transient strength, and a confidence value for the transient estimate.
-
-`pitch` contains an estimated fundamental frequency, MIDI note, note name, confidence, pitch stability, and a boolean indicating whether the sample is probably pitched. Pitch fields can be `null` when the analyzer does not have enough confidence.
-
-`timbre` contains spectral descriptors used for later tone and texture decisions, including centroid, bandwidth, rolloff, flatness, and mean spectral contrast.
-
-`profile` is a conservative, rule-based internal profile suggestion derived from the existing analysis metrics. It is not full instrument recognition. It currently helps identify broad behavior such as percussive, tonal-percussive, sustained tonal, sound-effect texture, or unknown.
-
-## Instrument Category Schema
-
-The current instrument category schema lives in:
-
-```txt
-variation_engine/analysis/categories.py
-```
-
-These categories are intended for future user-facing selection and later mapping to variation rules:
-
-```txt
-piano_keys
-plucked_string
-bowed_string
-guitar_bass
-drum_percussion
-synth_lead
-synth_pad
-vocal_voice
-fx_foley_texture
-unknown_auto
-```
-
-The labels are:
-
-| ID | Label |
-| --- | --- |
-| `piano_keys` | Piano / Keys |
-| `plucked_string` | Plucked String |
-| `bowed_string` | Bowed String |
-| `guitar_bass` | Guitar / Bass |
-| `drum_percussion` | Drum / Percussion |
-| `synth_lead` | Synth Lead |
-| `synth_pad` | Synth Pad |
-| `vocal_voice` | Vocal / Voice |
-| `fx_foley_texture` | FX / Foley / Texture |
-| `unknown_auto` | Unknown / Auto |
-
-Hornbostel-Sachs is used only as an optional internal hint for future rule-system design. It is not the main user-facing category system.
-
-`FX / Foley / Texture` is a first-class category because sound-design material does not fit cleanly into traditional instrument taxonomies.
-
-`Unknown / Auto` is a valid category for cases where the user does not choose a specific source or where the analyzer should remain conservative.
-
-This schema does not yet execute variation logic. It only defines stable IDs, labels, default internal profiles, optional internal hints, and future variation-permission flags.
-
-## Variation Rule Presets
-
-The project now includes a variation rule preset schema in:
-
-```txt
-variation_engine/variation/presets.py
-```
-
-The `variation_engine/variation/` package is the first configuration layer after analysis. Presets map internal analysis profiles to conservative future variation settings.
-
-Current preset IDs:
-
-```txt
-percussive
-tonal_percussive
-sustained_tonal
-sfx_texture
-unknown
-```
-
-Each preset defines:
-
-- round-robin count
-- velocity layer count
-- pitch mapping strategy
-- transform ranges for micropitch, timing, attack, timbre, saturation, gain, and space
-
-These presets do not render audio, generate WAV files, or process DSP. They provide structured configuration for dry-run planning and later DSP rendering.
-
-### Pitch Mapping Strategies
-
-`source_only` means future rendering would only create variants for the source note. With 8 round-robin variants and 4 velocity layers, this means 32 samples.
-
-`major_thirds_around_source` means future rendering may create anchor notes in major-third intervals around the detected or selected source note. With +/-2 octaves, 8 round-robin variants, and 4 velocity layers, this can result in 416 samples.
+- broaden source-only rendering with more deterministic DSP variation types
+- render velocity layers after the planner and renderer agree on the output structure
+- render pitch-mapped major-third target notes for tonal presets
+- add export metadata once the rendered output model is stable
+- keep VST, UI, DAW integration, and AI processing out of scope until the variation engine itself is useful
 
 ## Validation
 
-Useful local checks:
+Run:
 
 ```bash
-uv run python --version
-uv run python -c "import librosa, soundfile, pedalboard, audiomentations, numpy, scipy; print('ok')"
 uv run python -m unittest discover -s tests -p "test_*.py"
 ```
