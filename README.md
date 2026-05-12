@@ -27,6 +27,12 @@ profile
 
 The analysis is intentionally practical rather than academically perfect. Its job is to collect enough information for later musical decisions, such as how much pitch, attack, timbre, or space variation may be safe for a sample.
 
+The next Phase 1 layer is now represented as configuration only:
+
+```txt
+Analysis Result -> Internal Profile / Instrument Category -> Variation Rule Preset -> Dry-run Variation Plan -> DSP Rendering later
+```
+
 ## Setup
 
 Use Python with `uv`.
@@ -159,6 +165,41 @@ Hornbostel-Sachs is used only as an optional internal hint for future rule-syste
 `Unknown / Auto` is a valid category for cases where the user does not choose a specific source or where the analyzer should remain conservative.
 
 This schema does not yet execute variation logic. It only defines stable IDs, labels, default internal profiles, optional internal hints, and future variation-permission flags.
+
+## Variation Rule Presets
+
+The project now includes a variation rule preset schema in:
+
+```txt
+variation_engine/variation/presets.py
+```
+
+The `variation_engine/variation/` package is the first configuration layer after analysis. Presets map internal analysis profiles to conservative future variation settings.
+
+Current preset IDs:
+
+```txt
+percussive
+tonal_percussive
+sustained_tonal
+sfx_texture
+unknown
+```
+
+Each preset defines:
+
+- round-robin count
+- velocity layer count
+- pitch mapping strategy
+- transform ranges for micropitch, timing, attack, timbre, saturation, gain, and space
+
+These presets do not render audio, generate WAV files, calculate target notes, or create a dry-run variation plan yet. They only prepare structured configuration for future dry-run planning and later DSP rendering.
+
+### Pitch Mapping Strategies
+
+`source_only` means future rendering would only create variants for the source note. With 8 round-robin variants and 4 velocity layers, this means 32 samples.
+
+`major_thirds_around_source` means future rendering may create anchor notes in major-third intervals around the detected or selected source note. With +/-2 octaves, 8 round-robin variants, and 4 velocity layers, this can result in 416 samples.
 
 ## Validation
 
