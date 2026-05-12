@@ -7,6 +7,7 @@ from variation_engine.analysis.models import PitchMetrics
 MIN_PITCH_CONFIDENCE = 0.45
 MIN_PITCH_STABILITY = 0.35
 MIN_VOICED_RATIO = 0.25
+PITCH_FRAME_LENGTH = 4096
 
 
 def calculate_pitch_metrics(audio: np.ndarray, sample_rate: int) -> PitchMetrics:
@@ -26,6 +27,7 @@ def calculate_pitch_metrics(audio: np.ndarray, sample_rate: int) -> PitchMetrics
             fmin=fmin,
             fmax=fmax,
             sr=sample_rate,
+            frame_length=PITCH_FRAME_LENGTH,
         )
     except (librosa.util.exceptions.ParameterError, ValueError):
         return _empty_metrics()

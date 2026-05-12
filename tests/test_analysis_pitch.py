@@ -1,4 +1,5 @@
 import unittest
+import warnings
 
 import numpy as np
 
@@ -20,6 +21,26 @@ class PitchMetricsTest(unittest.TestCase):
         self.assertEqual(metrics.estimated_note_name, "A2")
         self.assertGreaterEqual(metrics.pitch_confidence, 0.45)
         self.assertGreaterEqual(metrics.pitch_stability, 0.35)
+
+    def test_low_tonal_sample_does_not_emit_frame_length_warning(self) -> None:
+        sample_rate = 44100
+        time = np.arange(sample_rate * 2, dtype=np.float64) / sample_rate
+        audio = 0.5 * np.sin(2.0 * np.pi * 32.703 * time)
+
+        with warnings.catch_warnings(record=True) as captured_warnings:
+            warnings.simplefilter("always")
+            metrics = calculate_pitch_metrics(audio, sample_rate)
+
+        warning_messages = [str(warning.message) for warning in captured_warnings]
+        self.assertFalse(
+            any(
+                "less than two periods of fmin fit into the frame" in message
+                for message in warning_messages
+            )
+        )
+        self.assertTrue(metrics.is_probably_pitched)
+        self.assertIsNotNone(metrics.estimated_f0_hz)
+        self.assertAlmostEqual(metrics.estimated_f0_hz, 32.703, delta=1.0)
 
     def test_noise_sample_does_not_force_pitch(self) -> None:
         rng = np.random.default_rng(1)
