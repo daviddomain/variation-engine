@@ -148,6 +148,8 @@ uv run python main.py render path/to/sample.wav --output generated --seed 11
 
 The command prints a JSON render summary to stdout. For presets that plan velocity layers or pitch-mapped notes, the renderer reports warnings because those planned dimensions are skipped by the current source-only renderer.
 
+The render summary includes `selected_render_recipe_id`, which identifies the round-robin render recipe used for deterministic variation instructions.
+
 Optional category and source note overrides are available here too:
 
 ```bash
@@ -155,6 +157,20 @@ uv run python main.py render path/to/sample.wav --output generated --category pi
 ```
 
 These options affect preset selection and warnings, but they do not make the current renderer create velocity layers or pitch-mapped notes.
+
+## Category-aware Render Recipes
+
+The render command selects a category-aware round-robin render recipe. Render recipes define deterministic instruction ranges for source-only round-robin variation, including gain, timing, micropitch, attack, brightness, decay, saturation, and stereo balance values.
+
+Recipe selection follows this priority:
+
+1. Use a category-specific recipe when `--category` is provided and known.
+2. Fall back to a profile-specific recipe.
+3. Fall back to the conservative unknown recipe.
+
+This allows categories such as `plucked_string`, `piano_keys`, and `drum_percussion` to define different musical variation ranges even when they share a broader analysis profile.
+
+Currently, the renderer applies only the supported safe gain and timing transforms. Additional recipe values such as micropitch, attack, brightness, decay, saturation, and stereo balance are generated deterministically as instruction data and reserved for future DSP rendering work.
 
 ## Variation Planning Model
 
