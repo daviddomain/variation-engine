@@ -12,7 +12,7 @@ Sample -> Analysis -> Instrument Type -> Variation Rules -> DSP Chain -> Optiona
 
 Phase 1 is an audio analysis lab. It focuses on analyzing one input sample and returning a structured JSON result that future variation rules can use.
 
-The project does not currently generate samples, execute variation rules, provide a UI, or integrate with plugins, VSTs, or DAWs. The current CLI only analyzes audio and prints analysis data.
+The project does not currently generate samples, process audio through DSP, render WAV files, provide a UI, or integrate with plugins, VSTs, or DAWs. The current CLI analyzes audio and can produce a dry-run variation plan as structured JSON.
 
 The analyzer currently returns these top-level JSON sections:
 
@@ -52,6 +52,62 @@ uv run python main.py analyze path/to/sample.wav
 Supported input depends on the audio formats available through `soundfile`, such as WAV, AIFF, and FLAC.
 
 The command prints formatted JSON to stdout. On unreadable or missing files, it prints an error to stderr and exits with a non-zero status.
+
+## Dry-run Variation Planning
+
+The project includes a dry-run variation planner:
+
+```bash
+uv run python main.py plan path/to/sample.wav
+```
+
+The planner reuses the existing analyzer, selects a variation rule preset, calculates target notes, and estimates the number of samples that would be generated in a future rendering step.
+
+It prints JSON to stdout only. It does not generate WAV files, process audio through DSP, or render samples yet.
+
+Optional category override:
+
+```bash
+uv run python main.py plan path/to/sample.wav --category piano_keys
+```
+
+Optional source note override:
+
+```bash
+uv run python main.py plan path/to/sample.wav --category piano_keys --source-note C3
+```
+
+If no category is provided, the planner uses the analyzer's suggested internal profile.
+
+If `--category` is provided, the category's default profile is used to select the variation rule preset.
+
+If `--source-note` is provided, it overrides the detected pitch.
+
+### Current Planning Strategies
+
+`source_only` plans one target note:
+
+```txt
+1 target note x 8 round-robin variants x 4 velocity layers = 32 planned samples
+```
+
+`major_thirds_around_source` plans anchor notes in major-third steps around the source note.
+
+With +/-2 octaves:
+
+```txt
+13 target notes x 8 round-robin variants x 4 velocity layers = 416 planned samples
+```
+
+Example for source note C3:
+
+```txt
+C1, E1, G#1,
+C2, E2, G#2,
+C3, E3, G#3,
+C4, E4, G#4,
+C5
+```
 
 ## Example JSON Output
 
@@ -193,7 +249,7 @@ Each preset defines:
 - pitch mapping strategy
 - transform ranges for micropitch, timing, attack, timbre, saturation, gain, and space
 
-These presets do not render audio, generate WAV files, calculate target notes, or create a dry-run variation plan yet. They only prepare structured configuration for future dry-run planning and later DSP rendering.
+These presets do not render audio, generate WAV files, or process DSP. They provide structured configuration for dry-run planning and later DSP rendering.
 
 ### Pitch Mapping Strategies
 
