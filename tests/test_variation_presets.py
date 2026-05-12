@@ -5,7 +5,6 @@ from variation_engine.variation.presets import (
     MAJOR_THIRDS_AROUND_SOURCE,
     SOURCE_ONLY,
     VARIATION_RULE_PRESETS,
-    VariationRulePreset,
     get_variation_rule_preset,
     get_variation_rule_preset_for_profile,
 )
@@ -31,7 +30,7 @@ class VariationRulePresetSchemaTest(unittest.TestCase):
         for preset in VARIATION_RULE_PRESETS:
             self.assertTrue(dataclasses.is_dataclass(preset))
             with self.assertRaises(dataclasses.FrozenInstanceError):
-                preset.round_robin_count = 16
+                setattr(preset, "round_robin_count", 16)
 
     def test_every_preset_uses_default_render_dimensions(self) -> None:
         for preset in VARIATION_RULE_PRESETS:
