@@ -25,6 +25,14 @@ class RoundRobinRenderRecipesTest(unittest.TestCase):
 
         self.assertEqual(recipe.id, "drum_percussion")
 
+    def test_selects_tonal_percussive_profile_fallback_recipe(self) -> None:
+        recipe = select_round_robin_render_recipe(
+            category_id=None,
+            profile_id="tonal_percussive",
+        )
+
+        self.assertEqual(recipe.id, "tonal_percussive")
+
     def test_selects_unknown_fallback_recipe_without_known_category_or_profile(self) -> None:
         recipe = select_round_robin_render_recipe(
             category_id=None,
