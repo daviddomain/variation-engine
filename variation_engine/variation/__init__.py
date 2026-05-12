@@ -31,11 +31,23 @@ from variation_engine.variation.planner import (
     midi_note_to_name,
     parse_note_name,
 )
+from variation_engine.variation.renderer import (
+    DEFAULT_RENDER_SEED,
+    SOURCE_ROUND_ROBIN_COUNT,
+    RenderedFileSummary,
+    RenderResult,
+    RoundRobinRenderInstruction,
+    build_source_round_robin_instructions,
+    render_audio_variant,
+    render_source_round_robins,
+)
 
 __all__ = [
+    "DEFAULT_RENDER_SEED",
     "DEFAULT_VARIATION_RULE_PRESET_ID",
     "MAJOR_THIRDS_AROUND_SOURCE",
     "SOURCE_ONLY",
+    "SOURCE_ROUND_ROBIN_COUNT",
     "VARIATION_RULE_PRESET_BY_ID",
     "VARIATION_RULE_PRESET_BY_PROFILE",
     "VARIATION_RULE_PRESETS",
@@ -56,8 +68,14 @@ __all__ = [
     "VariationPlan",
     "VariationPlanResult",
     "VariationPlanStatus",
+    "RenderedFileSummary",
+    "RenderResult",
+    "RoundRobinRenderInstruction",
     "build_target_notes",
+    "build_source_round_robin_instructions",
     "create_variation_plan",
     "midi_note_to_name",
     "parse_note_name",
+    "render_audio_variant",
+    "render_source_round_robins",
 ]
