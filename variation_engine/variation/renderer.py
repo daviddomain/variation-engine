@@ -5,6 +5,11 @@ import numpy as np
 import soundfile as sf
 
 from variation_engine.analysis.models import AnalysisResult
+from variation_engine.variation.audio_transforms import (
+    PLUCKED_STRING_RECIPE_ID,
+    apply_plucked_string_transforms,
+    limit_peak,
+)
 from variation_engine.variation.render_recipes import (
     ROUND_ROBIN_RENDER_RECIPE_BY_ID,
     UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID,
@@ -68,11 +73,14 @@ def render_audio_variant(
     shifted_audio = _shift_audio(audio, sample_rate, instruction.timing_shift_ms)
     gain_factor = 10 ** (instruction.gain_db / 20.0)
     gained_audio = shifted_audio * gain_factor
-    peak = float(np.max(np.abs(gained_audio))) if gained_audio.size else 0.0
-    if peak > 1.0:
-        return gained_audio / peak
+    if instruction.recipe_id == PLUCKED_STRING_RECIPE_ID:
+        gained_audio = apply_plucked_string_transforms(
+            gained_audio,
+            sample_rate=sample_rate,
+            instruction=instruction,
+        )
 
-    return gained_audio
+    return limit_peak(gained_audio)
 
 
 def render_source_round_robins(

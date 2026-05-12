@@ -67,6 +67,53 @@ class VariationRendererTest(unittest.TestCase):
         self.assertLessEqual(float(np.max(np.abs(rendered))), 1.0)
         np.testing.assert_allclose(rendered[:, 0], [1.0, -1.0, 0.5], atol=1e-7)
 
+    def test_render_audio_variant_uses_plucked_string_transform_path(self) -> None:
+        audio = np.column_stack(
+            [
+                np.linspace(0.0, 0.5, 32, dtype=np.float32),
+                np.linspace(0.5, 0.0, 32, dtype=np.float32),
+            ]
+        )
+        instruction = build_source_round_robin_instructions(seed=0)[0]
+        plucked_instruction = replace(
+            instruction,
+            recipe_id="plucked_string",
+            micropitch_cents=4.0,
+            attack_amount=-0.15,
+            brightness_amount=0.2,
+            decay_amount=-0.08,
+            stereo_balance_amount=0.08,
+        )
+
+        rendered = render_audio_variant(audio, sample_rate=1000, instruction=plucked_instruction)
+
+        self.assertEqual(rendered.shape, audio.shape)
+        self.assertFalse(np.array_equal(rendered, audio))
+        self.assertLessEqual(float(np.max(np.abs(rendered))), 1.0)
+
+    def test_render_audio_variant_keeps_non_plucked_safe_behavior(self) -> None:
+        audio = np.array([[0.2, 0.1], [0.4, -0.3], [0.6, 0.5]], dtype=np.float32)
+        instruction = build_source_round_robin_instructions(seed=0)[0]
+        non_plucked_instruction = replace(
+            instruction,
+            recipe_id="unknown_conservative",
+            micropitch_cents=4.0,
+            attack_amount=-0.15,
+            brightness_amount=0.2,
+            decay_amount=-0.08,
+            stereo_balance_amount=0.08,
+            gain_db=0.0,
+            timing_shift_ms=0.0,
+        )
+
+        rendered = render_audio_variant(
+            audio,
+            sample_rate=1000,
+            instruction=non_plucked_instruction,
+        )
+
+        np.testing.assert_array_equal(rendered, audio)
+
     def test_render_command_writes_exactly_eight_stereo_wavs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             input_path = Path(tmp_dir) / "sample.wav"
@@ -122,6 +169,50 @@ class VariationRendererTest(unittest.TestCase):
             with redirect_stdout(second_stdout):
                 second_exit = main(
                     ["render", str(input_path), "--output", str(second_dir), "--seed", "5"]
+                )
+
+            self.assertEqual(first_exit, 0)
+            self.assertEqual(second_exit, 0)
+            for index in range(1, 9):
+                first_audio, first_rate = sf.read(first_dir / f"rr_{index:02d}.wav", always_2d=True)
+                second_audio, second_rate = sf.read(second_dir / f"rr_{index:02d}.wav", always_2d=True)
+                self.assertEqual(first_rate, second_rate)
+                np.testing.assert_array_equal(first_audio, second_audio)
+
+    def test_plucked_string_render_command_is_deterministic_with_same_seed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            input_path = Path(tmp_dir) / "sample.wav"
+            first_dir = Path(tmp_dir) / "first"
+            second_dir = Path(tmp_dir) / "second"
+            sf.write(input_path, _stereo_sample(sample_rate=8000), 8000, subtype="FLOAT")
+
+            first_stdout = StringIO()
+            second_stdout = StringIO()
+            with redirect_stdout(first_stdout):
+                first_exit = main(
+                    [
+                        "render",
+                        str(input_path),
+                        "--output",
+                        str(first_dir),
+                        "--category",
+                        "plucked_string",
+                        "--seed",
+                        "5",
+                    ]
+                )
+            with redirect_stdout(second_stdout):
+                second_exit = main(
+                    [
+                        "render",
+                        str(input_path),
+                        "--output",
+                        str(second_dir),
+                        "--category",
+                        "plucked_string",
+                        "--seed",
+                        "5",
+                    ]
                 )
 
             self.assertEqual(first_exit, 0)
