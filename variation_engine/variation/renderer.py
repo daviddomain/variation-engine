@@ -31,8 +31,15 @@ class RenderedFileSummary:
     sample_rate: int
     channels: int
     sample_count: int
-    gain_db: float
+    recipe_id: str
+    micropitch_cents: float
     timing_shift_ms: float
+    gain_db: float
+    attack_amount: float
+    brightness_amount: float
+    decay_amount: float
+    saturation_amount: float
+    stereo_balance_amount: float
 
 
 @dataclass(frozen=True)
@@ -164,8 +171,15 @@ def _write_round_robin_file(
         sample_rate=sample_rate,
         channels=channels,
         sample_count=rendered_audio.shape[0],
-        gain_db=instruction.gain_db,
+        recipe_id=instruction.recipe_id,
+        micropitch_cents=instruction.micropitch_cents,
         timing_shift_ms=instruction.timing_shift_ms,
+        gain_db=instruction.gain_db,
+        attack_amount=instruction.attack_amount,
+        brightness_amount=instruction.brightness_amount,
+        decay_amount=instruction.decay_amount,
+        saturation_amount=instruction.saturation_amount,
+        stereo_balance_amount=instruction.stereo_balance_amount,
     )
 
 
