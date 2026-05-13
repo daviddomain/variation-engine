@@ -144,6 +144,26 @@ class VariationRendererTest(unittest.TestCase):
         self.assertEqual(output["round_robin_count"], 8)
         self.assertEqual(output["selected_render_recipe_id"], "unknown_conservative")
         self.assertEqual(len(output["files"]), 8)
+        for file_summary in output["files"]:
+            self.assertEqual(
+                set(file_summary),
+                {
+                    "path",
+                    "sample_rate",
+                    "channels",
+                    "sample_count",
+                    "recipe_id",
+                    "micropitch_cents",
+                    "timing_shift_ms",
+                    "gain_db",
+                    "attack_amount",
+                    "brightness_amount",
+                    "decay_amount",
+                    "saturation_amount",
+                    "stereo_balance_amount",
+                },
+            )
+            self.assertEqual(file_summary["recipe_id"], "unknown_conservative")
 
         self.assertEqual(first_rate, original_rate)
         self.assertEqual(first_rendered.shape, original.shape)
@@ -247,6 +267,14 @@ class VariationRendererTest(unittest.TestCase):
         output = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(output["selected_render_recipe_id"], "plucked_string")
+        for file_summary in output["files"]:
+            self.assertEqual(file_summary["recipe_id"], "plucked_string")
+            self.assertIn("micropitch_cents", file_summary)
+            self.assertIn("attack_amount", file_summary)
+            self.assertIn("brightness_amount", file_summary)
+            self.assertIn("decay_amount", file_summary)
+            self.assertIn("saturation_amount", file_summary)
+            self.assertIn("stereo_balance_amount", file_summary)
 
     def test_render_command_rejects_invalid_source_note(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
