@@ -12,6 +12,7 @@ wheels/
 
 *.pyc
 generated/
+lab_output/
 samples/
 
 .codex-issue-bodies

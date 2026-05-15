@@ -4,6 +4,7 @@ import sys
 from collections.abc import Sequence
 
 from variation_engine.analysis.io import AudioMetadataError, analyze_audio_file
+from variation_engine.lab.server import DEFAULT_LAB_HOST, DEFAULT_LAB_PORT, run_lab_server
 from variation_engine.variation.planner import InvalidNoteNameError, create_variation_plan
 from variation_engine.variation.renderer import DEFAULT_RENDER_SEED, render_source_round_robins
 
@@ -57,6 +58,22 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Deterministic render seed. Defaults to {DEFAULT_RENDER_SEED}.",
     )
 
+    lab_parser = subparsers.add_parser(
+        "lab",
+        help="Start the local dependency-free Audio Lab web server.",
+    )
+    lab_parser.add_argument(
+        "--host",
+        default=DEFAULT_LAB_HOST,
+        help=f"Host address to bind. Defaults to {DEFAULT_LAB_HOST}.",
+    )
+    lab_parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_LAB_PORT,
+        help=f"Port to bind. Defaults to {DEFAULT_LAB_PORT}.",
+    )
+
     return parser
 
 
@@ -105,6 +122,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
 
         print(json.dumps(result.to_dict(), indent=2))
+        return 0
+
+    if args.command == "lab":
+        try:
+            run_lab_server(host=args.host, port=args.port)
+        except OSError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
         return 0
 
     parser.error(f"Unknown command: {args.command}")
