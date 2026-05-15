@@ -290,7 +290,10 @@ def validate_render_request(request_body: object) -> dict[str, object]:
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise ValueError("seed must be an integer")
 
-    parameter_ranges = request_body.get("parameter_ranges", {})
+    parameter_ranges = request_body.get("parameter_ranges")
+    if parameter_ranges is None:
+        raise ValueError("Missing required request field: parameter_ranges")
+
     validated_ranges = validate_render_recipe_range_overrides(parameter_ranges)
     return {
         "category_id": category_id,

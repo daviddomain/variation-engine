@@ -147,6 +147,17 @@ class LabApiEndpointTest(unittest.TestCase):
 
         self.assertIn("micropitch_cents range override must stay within", body["error"])
 
+    def test_render_endpoint_rejects_missing_parameter_ranges(self) -> None:
+        request = self.valid_render_request()
+        del request["parameter_ranges"]
+
+        body = self.post_json_error("/api/render", request)
+
+        self.assertEqual(
+            body,
+            {"error": "Missing required request field: parameter_ranges"},
+        )
+
     def test_render_endpoint_writes_run_files_and_render_json(self) -> None:
         body = self.post_json("/api/render", self.valid_render_request())
 
