@@ -158,6 +158,59 @@ uv run python main.py render path/to/sample.wav --output generated --category pi
 
 These options affect preset selection and warnings, but they do not make the current renderer create velocity layers or pitch-mapped notes.
 
+## Local Audio Lab
+
+The Local Audio Lab is a local-only Phase 1 developer interface for audio experimentation and tuning category-specific render recipe ranges. It is not a product UI.
+
+Start the lab with:
+
+```bash
+uv run python main.py lab
+```
+
+By default, it is available at:
+
+```txt
+http://127.0.0.1:8765
+```
+
+You can also set the host and port explicitly:
+
+```bash
+uv run python main.py lab --host 127.0.0.1 --port 8765
+```
+
+The lab scans sample folders with this layout:
+
+```txt
+samples/<category_id>/*.wav
+```
+
+Example:
+
+```txt
+samples/plucked_string/Harp.wav
+```
+
+Only `.wav` files are scanned currently.
+
+Every render run is saved automatically under `lab_output/`, which is ignored by git:
+
+```txt
+lab_output/<category_id>/<sample-stem>_seed-<seed>_<YYYYMMDD-HHMMSS>/
+  rr_01.wav
+  rr_02.wav
+  rr_03.wav
+  rr_04.wav
+  rr_05.wav
+  rr_06.wav
+  rr_07.wav
+  rr_08.wav
+  render.json
+```
+
+`render.json` contains the analysis data, parameter ranges, parameter limits, render result, and audio URLs for the run.
+
 ## Category-aware Render Recipes
 
 The render command selects a category-aware round-robin render recipe. Render recipes define deterministic instruction ranges for source-only round-robin variation, including gain, timing, micropitch, attack, brightness, decay, saturation, and stereo balance values.
