@@ -13,79 +13,66 @@
 
       <form class="control-form">
         <label for="category">Category</label>
-        <select id="category" name="category">
-          <option value="piano_keys">Piano / Keys</option>
-          <option value="plucked_string">Plucked String</option>
-          <option value="bowed_string">Bowed String</option>
-          <option value="guitar_bass">Guitar / Bass</option>
-          <option value="drum_percussion">Drum / Percussion</option>
-          <option value="synth_lead">Synth Lead</option>
-          <option value="synth_pad">Synth Pad</option>
-          <option value="vocal_voice">Vocal / Voice</option>
-          <option value="fx_foley_texture">FX / Foley / Texture</option>
-          <option value="unknown_auto">Unknown / Auto</option>
-        </select>
+        <select id="category" name="category"></select>
 
         <label for="sample">Sample</label>
-        <select id="sample" name="sample">
-          <option value="">No sample scanning yet</option>
-        </select>
+        <select id="sample" name="sample"></select>
 
         <label for="source-note">Source Note</label>
         <input id="source-note" name="source-note" type="text" placeholder="A4" autocomplete="off">
 
         <label for="seed">Seed</label>
-        <input id="seed" name="seed" type="number" value="1337" step="1">
+        <input id="seed" name="seed" type="number" value="0" step="1">
 
-        <button type="button" disabled>Render</button>
+        <button id="render-button" type="button" disabled>Render</button>
       </form>
 
       <div class="status-panel" role="status" aria-live="polite">
-        Ready. Rendering is not wired in this skeleton.
+        Loading Audio Lab...
       </div>
     </section>
 
     <section class="panel parameters-panel">
       <h2>Render Variation Parameters</h2>
+      <button id="reset-ranges" class="secondary-button" type="button" disabled>Reset to recipe defaults</button>
 
-      <div class="slider-group" data-range>
-        <label>Gain dB</label>
-        <div class="range-row">
-          <input type="range" min="-3" max="2" value="-0.5" step="0.1" disabled>
-          <input type="range" min="-3" max="2" value="0.5" step="0.1" disabled>
-        </div>
-      </div>
+      <div id="slider-list" class="slider-list"></div>
+    </section>
 
-      <div class="slider-group" data-range>
-        <label>Micropitch cents</label>
-        <div class="range-row">
-          <input type="range" min="-10" max="10" value="-1" step="0.25" disabled>
-          <input type="range" min="-10" max="10" value="1" step="0.25" disabled>
+    <section class="panel analysis-panel">
+      <h2>Analysis Preview</h2>
+      <dl id="analysis-preview" class="analysis-preview">
+        <div>
+          <dt>Detected note</dt>
+          <dd>-</dd>
         </div>
-      </div>
-
-      <div class="slider-group" data-range>
-        <label>Timing shift ms</label>
-        <div class="range-row">
-          <input type="range" min="-250" max="250" value="-25" step="5" disabled>
-          <input type="range" min="-250" max="250" value="25" step="5" disabled>
+        <div>
+          <dt>Pitch confidence</dt>
+          <dd>-</dd>
         </div>
-      </div>
-
-      <div class="slider-group" data-range>
-        <label>Brightness</label>
-        <div class="range-row">
-          <input type="range" min="-1" max="1" value="-0.2" step="0.05" disabled>
-          <input type="range" min="-1" max="1" value="0.2" step="0.05" disabled>
+        <div>
+          <dt>Suggested profile</dt>
+          <dd>-</dd>
         </div>
-      </div>
+        <div>
+          <dt>Duration</dt>
+          <dd>-</dd>
+        </div>
+        <div>
+          <dt>Sample rate</dt>
+          <dd>-</dd>
+        </div>
+        <div>
+          <dt>Channels</dt>
+          <dd>-</dd>
+        </div>
+      </dl>
     </section>
 
     <section class="panel output-panel">
       <h2>Rendered JSON Output</h2>
-      <textarea id="rendered-output" spellcheck="false" readonly>{
-  "status": "placeholder"
-}</textarea>
+      <div id="output-dir" class="output-dir">Output directory: -</div>
+      <textarea id="rendered-output" spellcheck="false" readonly></textarea>
       <div class="save-row">
         <button type="button" disabled>Save</button>
         <span>Every render run is saved automatically.</span>

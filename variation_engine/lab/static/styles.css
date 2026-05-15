@@ -87,6 +87,15 @@ button {
   font-weight: 700;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+.secondary-button {
+  background: var(--field);
+  color: var(--text);
+}
+
 button:disabled,
 input:disabled {
   cursor: not-allowed;
@@ -109,9 +118,24 @@ input:disabled {
   gap: 18px;
 }
 
+.analysis-panel {
+  display: grid;
+  align-content: start;
+}
+
+.slider-list {
+  display: grid;
+  gap: 18px;
+}
+
 .slider-group {
   display: grid;
   gap: 10px;
+}
+
+.slider-value {
+  color: var(--text);
+  font-size: 13px;
 }
 
 .range-row {
@@ -126,6 +150,35 @@ input[type="range"] {
 
 .output-panel {
   grid-column: 1 / -1;
+}
+
+.analysis-preview {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-preview div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(120px, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.analysis-preview dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.analysis-preview dd {
+  margin: 0;
+}
+
+.output-dir {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 textarea {
@@ -168,6 +221,11 @@ textarea {
     inset -3px -3px 4px rgba(0, 0, 0, 0.5);
 }
 
+.pads-grid button.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 @media (max-width: 760px) {
   .lab-wrapper {
     grid-template-columns: 1fr;
@@ -185,5 +243,10 @@ textarea {
   .save-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .analysis-preview div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
