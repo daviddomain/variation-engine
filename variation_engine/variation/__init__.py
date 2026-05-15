@@ -34,11 +34,15 @@ from variation_engine.variation.planner import (
 from variation_engine.variation.render_recipes import (
     ROUND_ROBIN_RENDER_RECIPES,
     ROUND_ROBIN_RENDER_RECIPE_BY_ID,
+    RENDER_RECIPE_PARAMETER_LIMITS,
     UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID,
+    RenderRecipeRangeOverrides,
     RoundRobinRenderInstruction,
     RoundRobinRenderRecipe,
+    apply_render_recipe_range_overrides,
     generate_round_robin_render_instructions,
     select_round_robin_render_recipe,
+    validate_render_recipe_range_overrides,
 )
 from variation_engine.variation.renderer import (
     DEFAULT_RENDER_SEED,
@@ -58,6 +62,7 @@ __all__ = [
     "SOURCE_ROUND_ROBIN_COUNT",
     "ROUND_ROBIN_RENDER_RECIPES",
     "ROUND_ROBIN_RENDER_RECIPE_BY_ID",
+    "RENDER_RECIPE_PARAMETER_LIMITS",
     "UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID",
     "VARIATION_RULE_PRESET_BY_ID",
     "VARIATION_RULE_PRESET_BY_PROFILE",
@@ -81,8 +86,10 @@ __all__ = [
     "VariationPlanStatus",
     "RenderedFileSummary",
     "RenderResult",
+    "RenderRecipeRangeOverrides",
     "RoundRobinRenderInstruction",
     "RoundRobinRenderRecipe",
+    "apply_render_recipe_range_overrides",
     "build_target_notes",
     "build_source_round_robin_instructions",
     "create_variation_plan",
@@ -92,4 +99,5 @@ __all__ = [
     "render_audio_variant",
     "render_source_round_robins",
     "select_round_robin_render_recipe",
+    "validate_render_recipe_range_overrides",
 ]

@@ -1,8 +1,11 @@
-from dataclasses import dataclass
+import math
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from random import Random
 
 
 UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID = "unknown_conservative"
+RenderRecipeRangeOverrides = Mapping[str, Sequence[float]]
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,18 @@ class RoundRobinRenderInstruction:
 
 def _range(min_value: float, max_value: float) -> NumericRange:
     return NumericRange(min_value=min_value, max_value=max_value)
+
+
+RENDER_RECIPE_PARAMETER_LIMITS: dict[str, NumericRange] = {
+    "micropitch_cents": _range(-12.0, 12.0),
+    "timing_shift_ms": _range(-10.0, 10.0),
+    "gain_db": _range(-3.0, 3.0),
+    "attack_amount": _range(-0.5, 0.5),
+    "brightness_amount": _range(-0.5, 0.5),
+    "decay_amount": _range(-0.3, 0.3),
+    "saturation_amount": _range(0.0, 0.2),
+    "stereo_balance_amount": _range(-0.25, 0.25),
+}
 
 
 ROUND_ROBIN_RENDER_RECIPES: tuple[RoundRobinRenderRecipe, ...] = (
@@ -180,6 +195,47 @@ def select_round_robin_render_recipe(
     return ROUND_ROBIN_RENDER_RECIPE_BY_ID[UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID]
 
 
+def validate_render_recipe_range_overrides(
+    overrides: RenderRecipeRangeOverrides,
+) -> dict[str, NumericRange]:
+    if not isinstance(overrides, Mapping):
+        raise ValueError("Render recipe range overrides must be a mapping.")
+
+    validated_ranges: dict[str, NumericRange] = {}
+    for name, raw_range in overrides.items():
+        if name not in RENDER_RECIPE_PARAMETER_LIMITS:
+            raise ValueError(f"Unknown render recipe range override: {name}")
+
+        min_value, max_value = _validate_range_override(name, raw_range)
+        if name == "saturation_amount" and (min_value < 0.0 or max_value < 0.0):
+            raise ValueError("saturation_amount range override must be unipolar.")
+
+        limit = RENDER_RECIPE_PARAMETER_LIMITS[name]
+        if min_value < limit.min_value or max_value > limit.max_value:
+            raise ValueError(
+                f"{name} range override must stay within "
+                f"{limit.min_value} to {limit.max_value}."
+            )
+
+        validated_ranges[name] = NumericRange(
+            min_value=min_value,
+            max_value=max_value,
+        )
+
+    return validated_ranges
+
+
+def apply_render_recipe_range_overrides(
+    recipe: RoundRobinRenderRecipe,
+    overrides: RenderRecipeRangeOverrides,
+) -> RoundRobinRenderRecipe:
+    validated_ranges = validate_render_recipe_range_overrides(overrides)
+    if not validated_ranges:
+        return recipe
+
+    return replace(recipe, **validated_ranges)
+
+
 def generate_round_robin_render_instructions(
     *,
     recipe: RoundRobinRenderRecipe,
@@ -238,3 +294,32 @@ def _range_value(value_range: NumericRange, random: Random) -> float:
 
 def _output_filename(index: int) -> str:
     return f"rr_{index:02d}.wav"
+
+
+def _validate_range_override(
+    name: str,
+    raw_range: Sequence[float],
+) -> tuple[float, float]:
+    if isinstance(raw_range, (str, bytes)) or not isinstance(raw_range, Sequence):
+        raise ValueError(f"{name} range override must contain exactly two numeric values.")
+
+    if len(raw_range) != 2:
+        raise ValueError(f"{name} range override must contain exactly two numeric values.")
+
+    min_value = _validate_range_bound(name, "min", raw_range[0])
+    max_value = _validate_range_bound(name, "max", raw_range[1])
+    if min_value > max_value:
+        raise ValueError(f"{name} range override min must be less than or equal to max.")
+
+    return min_value, max_value
+
+
+def _validate_range_bound(name: str, bound_name: str, value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} range override {bound_name} value must be numeric.")
+
+    numeric_value = float(value)
+    if not math.isfinite(numeric_value):
+        raise ValueError(f"{name} range override {bound_name} value must be finite.")
+
+    return numeric_value

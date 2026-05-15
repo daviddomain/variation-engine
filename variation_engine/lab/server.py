@@ -12,6 +12,7 @@ from variation_engine.analysis.categories import INSTRUMENT_CATEGORIES, get_inst
 from variation_engine.analysis.io import AudioMetadataError, analyze_audio_file
 from variation_engine.variation.render_recipes import (
     NumericRange,
+    RENDER_RECIPE_PARAMETER_LIMITS,
     RoundRobinRenderRecipe,
     select_round_robin_render_recipe,
 )
@@ -20,16 +21,7 @@ from variation_engine.variation.render_recipes import (
 DEFAULT_LAB_HOST = "127.0.0.1"
 DEFAULT_LAB_PORT = 8765
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-RECIPE_PARAMETER_LIMITS: dict[str, NumericRange] = {
-    "micropitch_cents": NumericRange(-12.0, 12.0),
-    "timing_shift_ms": NumericRange(-10.0, 10.0),
-    "gain_db": NumericRange(-3.0, 3.0),
-    "attack_amount": NumericRange(-0.5, 0.5),
-    "brightness_amount": NumericRange(-0.5, 0.5),
-    "decay_amount": NumericRange(-0.3, 0.3),
-    "saturation_amount": NumericRange(0.0, 0.2),
-    "stereo_balance_amount": NumericRange(-0.25, 0.25),
-}
+RECIPE_PARAMETER_LIMITS: dict[str, NumericRange] = RENDER_RECIPE_PARAMETER_LIMITS
 
 
 def ensure_sample_category_folders(samples_root: str | Path = "samples") -> list[Path]:
