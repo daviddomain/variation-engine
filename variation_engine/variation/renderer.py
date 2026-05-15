@@ -13,8 +13,10 @@ from variation_engine.variation.audio_transforms import (
 from variation_engine.variation.render_recipes import (
     ROUND_ROBIN_RENDER_RECIPE_BY_ID,
     UNKNOWN_CONSERVATIVE_RENDER_RECIPE_ID,
+    RenderRecipeRangeOverrides,
     RoundRobinRenderInstruction,
     RoundRobinRenderRecipe,
+    apply_render_recipe_range_overrides,
     generate_round_robin_render_instructions,
     select_round_robin_render_recipe,
 )
@@ -97,6 +99,7 @@ def render_source_round_robins(
     category_id: str | None = None,
     source_note: str | None = None,
     seed: int = DEFAULT_RENDER_SEED,
+    render_recipe_range_overrides: RenderRecipeRangeOverrides | None = None,
 ) -> RenderResult:
     """Render exactly eight source-note round-robin WAV files."""
     plan = create_variation_plan(
@@ -113,6 +116,12 @@ def render_source_round_robins(
         category_id=category_id,
         profile_id=plan.selected_preset.target_profile,
     )
+    if render_recipe_range_overrides is not None:
+        recipe = apply_render_recipe_range_overrides(
+            recipe,
+            render_recipe_range_overrides,
+        )
+
     instructions = build_source_round_robin_instructions(seed=seed, recipe=recipe)
     output_subtype = _wav_output_subtype(input_info.subtype)
     rendered_files = tuple(

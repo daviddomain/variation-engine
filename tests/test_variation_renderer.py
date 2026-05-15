@@ -10,9 +10,20 @@ import numpy as np
 import soundfile as sf
 
 from variation_engine.cli import main
+from variation_engine.analysis.models import (
+    AmplitudeMetrics,
+    AnalysisResult,
+    FileMetadata,
+    PitchMetrics,
+    ProfileMetrics,
+    TimbreMetrics,
+    TransientMetrics,
+)
+from variation_engine.variation.render_recipes import ROUND_ROBIN_RENDER_RECIPE_BY_ID
 from variation_engine.variation.renderer import (
     build_source_round_robin_instructions,
     render_audio_variant,
+    render_source_round_robins,
 )
 
 
@@ -276,6 +287,43 @@ class VariationRendererTest(unittest.TestCase):
             self.assertIn("saturation_amount", file_summary)
             self.assertIn("stereo_balance_amount", file_summary)
 
+    def test_render_source_round_robins_uses_temporary_recipe_range_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            input_path = Path(tmp_dir) / "sample.wav"
+            output_dir = Path(tmp_dir) / "generated"
+            sf.write(input_path, _stereo_sample(sample_rate=8000), 8000, subtype="FLOAT")
+
+            result = render_source_round_robins(
+                input_path,
+                output_dir,
+                _analysis(profile="tonal_percussive"),
+                category_id="plucked_string",
+                seed=11,
+                render_recipe_range_overrides={
+                    "micropitch_cents": (-1.0, 1.0),
+                    "timing_shift_ms": (-0.5, 0.5),
+                    "gain_db": (-0.1, 0.1),
+                },
+            )
+
+        self.assertEqual(result.selected_render_recipe_id, "plucked_string")
+        for file_summary in result.files:
+            self.assertGreaterEqual(file_summary.micropitch_cents, -1.0)
+            self.assertLessEqual(file_summary.micropitch_cents, 1.0)
+            self.assertGreaterEqual(file_summary.timing_shift_ms, -0.5)
+            self.assertLessEqual(file_summary.timing_shift_ms, 0.5)
+            self.assertGreaterEqual(file_summary.gain_db, -0.1)
+            self.assertLessEqual(file_summary.gain_db, 0.1)
+
+        self.assertEqual(
+            ROUND_ROBIN_RENDER_RECIPE_BY_ID["plucked_string"].micropitch_cents.min_value,
+            -4.0,
+        )
+        self.assertEqual(
+            ROUND_ROBIN_RENDER_RECIPE_BY_ID["plucked_string"].micropitch_cents.max_value,
+            4.0,
+        )
+
     def test_render_command_rejects_invalid_source_note(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             input_path = Path(tmp_dir) / "sample.wav"
@@ -305,6 +353,51 @@ def _stereo_sample(sample_rate: int) -> np.ndarray:
     left = 0.2 * np.sin(2 * np.pi * 220.0 * time)
     right = 0.15 * np.sin(2 * np.pi * 330.0 * time)
     return np.column_stack([left, right]).astype(np.float32)
+
+
+def _analysis(profile: str) -> AnalysisResult:
+    return AnalysisResult(
+        file=FileMetadata(
+            path="samples/test.wav",
+            sample_rate=44100,
+            channels=1,
+            duration_seconds=1.25,
+            sample_count=55125,
+        ),
+        amplitude=AmplitudeMetrics(
+            peak_amplitude=0.8,
+            rms=0.2,
+            crest_factor=4.0,
+            leading_silence_ms=0.0,
+            trailing_silence_ms=0.0,
+        ),
+        transient=TransientMetrics(
+            onset_time_ms=5.0,
+            attack_duration_ms=12.0,
+            transient_strength=0.6,
+            transient_confidence=0.7,
+        ),
+        pitch=PitchMetrics(
+            estimated_f0_hz=None,
+            estimated_midi_note=None,
+            estimated_note_name=None,
+            pitch_confidence=0.0,
+            is_probably_pitched=False,
+            pitch_stability=0.0,
+        ),
+        timbre=TimbreMetrics(
+            spectral_centroid=1000.0,
+            spectral_bandwidth=500.0,
+            spectral_rolloff=2000.0,
+            spectral_flatness=0.1,
+            spectral_contrast_mean=12.0,
+        ),
+        profile=ProfileMetrics(
+            suggested_profile=profile,
+            confidence=0.75,
+            reasons=[],
+        ),
+    )
 
 
 if __name__ == "__main__":
