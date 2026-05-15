@@ -86,6 +86,13 @@ class LabApiEndpointTest(unittest.TestCase):
             body,
         )
 
+    def test_static_lab_files_are_served(self) -> None:
+        page = self.get_text("/")
+        script = self.get_text("/app.js")
+
+        self.assertIn('<select id="category" name="category"></select>', page)
+        self.assertIn('fetchJson("/api/categories")', script)
+
     def test_samples_endpoint_only_returns_wav_files_from_selected_category(self) -> None:
         body = self.get_json("/api/samples?category=plucked_string")
 
@@ -246,6 +253,9 @@ class LabApiEndpointTest(unittest.TestCase):
         with urlopen(f"{self.base_url}{path}", timeout=10) as response:
             self.assertEqual(response.status, 200)
             return response.read()
+
+    def get_text(self, path: str) -> str:
+        return self.get_bytes(path).decode("utf-8")
 
     def valid_render_request(self) -> dict[str, object]:
         return {
