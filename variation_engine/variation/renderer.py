@@ -77,6 +77,7 @@ def render_audio_variant(
     audio: np.ndarray,
     sample_rate: int,
     instruction: RoundRobinRenderInstruction,
+    analysis: AnalysisResult | None = None,
 ) -> np.ndarray:
     """Apply safe deterministic gain and timing offsets to an audio buffer."""
     shifted_audio = _shift_audio(audio, sample_rate, instruction.timing_shift_ms)
@@ -87,6 +88,7 @@ def render_audio_variant(
             gained_audio,
             sample_rate=sample_rate,
             instruction=instruction,
+            analysis=analysis,
         )
 
     return limit_peak(gained_audio)
@@ -132,6 +134,7 @@ def render_source_round_robins(
             channels=input_info.channels,
             subtype=output_subtype,
             instruction=instruction,
+            analysis=analysis,
         )
         for instruction in instructions
     )
@@ -170,8 +173,9 @@ def _write_round_robin_file(
     channels: int,
     subtype: str,
     instruction: RoundRobinRenderInstruction,
+    analysis: AnalysisResult,
 ) -> RenderedFileSummary:
-    rendered_audio = render_audio_variant(audio, sample_rate, instruction)
+    rendered_audio = render_audio_variant(audio, sample_rate, instruction, analysis)
     file_path = output_path / instruction.output_filename
     sf.write(file_path, rendered_audio, sample_rate, subtype=subtype)
 

@@ -1,5 +1,6 @@
 import numpy as np
 
+from variation_engine.analysis.models import AnalysisResult
 from variation_engine.variation.render_recipes import RoundRobinRenderInstruction
 
 
@@ -51,19 +52,42 @@ def apply_attack_envelope(
 def apply_brightness(
     audio: np.ndarray,
     *,
+    sample_rate: int,
     amount: float,
+    estimated_f0_hz: float | None = None,
+    spectral_centroid: float | None = None,
+    spectral_bandwidth: float | None = None,
+    spectral_rolloff: float | None = None,
 ) -> np.ndarray:
-    """Blend a small lowpass or high-frequency emphasis into the signal."""
+    """Shape plucked-string brightness around the analyzed presence region."""
     if audio.shape[0] == 0 or amount == 0.0:
         return audio.copy()
 
-    lowpassed = _one_pole_lowpass(audio, coefficient=0.18)
-    if amount < 0.0:
-        wet = min(abs(amount), 1.0) * 0.6
-        transformed = (1.0 - wet) * audio + wet * lowpassed
+    shaping = _brightness_shaping_parameters(
+        sample_rate=sample_rate,
+        estimated_f0_hz=estimated_f0_hz,
+        spectral_centroid=spectral_centroid,
+        spectral_bandwidth=spectral_bandwidth,
+        spectral_rolloff=spectral_rolloff,
+    )
+    frequencies = np.fft.rfftfreq(audio.shape[0], d=1.0 / sample_rate)
+    presence_offset = (frequencies - shaping["presence_center"]) / shaping["presence_width"]
+    presence = np.exp(-0.5 * presence_offset**2)
+    detail = _smooth_high_shelf(
+        frequencies,
+        anchor=shaping["detail_anchor"],
+        width=shaping["detail_width"],
+    )
+
+    clamped_amount = max(-1.0, min(1.0, amount))
+    if clamped_amount < 0.0:
+        gain_db = clamped_amount * (7.0 * presence + 3.0 * detail)
     else:
-        high_frequency_detail = audio - lowpassed
-        transformed = audio + high_frequency_detail * min(amount, 1.0) * 0.7
+        gain_db = clamped_amount * (8.0 * presence + 2.5 * detail)
+
+    gain = (10.0 ** (gain_db / 20.0)).reshape(-1, 1)
+    spectrum = np.fft.rfft(audio.astype(np.float64, copy=False), axis=0)
+    transformed = np.fft.irfft(spectrum * gain, n=audio.shape[0], axis=0)
 
     return transformed.astype(audio.dtype, copy=False)
 
@@ -108,6 +132,7 @@ def apply_plucked_string_transforms(
     *,
     sample_rate: int,
     instruction: RoundRobinRenderInstruction,
+    analysis: AnalysisResult | None = None,
 ) -> np.ndarray:
     """Apply the first musical DSP chain for plucked-string round robins."""
     transformed = apply_micropitch(audio, cents=instruction.micropitch_cents)
@@ -116,7 +141,15 @@ def apply_plucked_string_transforms(
         sample_rate=sample_rate,
         amount=instruction.attack_amount,
     )
-    transformed = apply_brightness(transformed, amount=instruction.brightness_amount)
+    transformed = apply_brightness(
+        transformed,
+        sample_rate=sample_rate,
+        amount=instruction.brightness_amount,
+        estimated_f0_hz=analysis.pitch.estimated_f0_hz if analysis is not None else None,
+        spectral_centroid=analysis.timbre.spectral_centroid if analysis is not None else None,
+        spectral_bandwidth=analysis.timbre.spectral_bandwidth if analysis is not None else None,
+        spectral_rolloff=analysis.timbre.spectral_rolloff if analysis is not None else None,
+    )
     transformed = apply_decay_envelope(
         transformed,
         sample_rate=sample_rate,
@@ -136,12 +169,79 @@ def limit_peak(audio: np.ndarray) -> np.ndarray:
     return audio
 
 
-def _one_pole_lowpass(audio: np.ndarray, *, coefficient: float) -> np.ndarray:
-    lowpassed = np.empty_like(audio, dtype=np.float64)
-    lowpassed[0] = audio[0]
-    for index in range(1, audio.shape[0]):
-        lowpassed[index] = (
-            coefficient * audio[index] + (1.0 - coefficient) * lowpassed[index - 1]
-        )
+def _brightness_shaping_parameters(
+    *,
+    sample_rate: int,
+    estimated_f0_hz: float | None,
+    spectral_centroid: float | None,
+    spectral_bandwidth: float | None,
+    spectral_rolloff: float | None,
+) -> dict[str, float]:
+    nyquist = max(float(sample_rate) / 2.0, 1.0)
+    fallback_centroid = min(1200.0, nyquist * 0.45)
+    centroid = _valid_frequency(
+        spectral_centroid,
+        fallback=fallback_centroid,
+        nyquist=nyquist,
+    )
+    bandwidth = _valid_frequency(
+        spectral_bandwidth,
+        fallback=max(centroid * 0.75, 200.0),
+        nyquist=nyquist,
+    )
+    rolloff = _valid_frequency(
+        spectral_rolloff,
+        fallback=centroid + bandwidth * 0.65,
+        nyquist=nyquist,
+    )
+    f0 = _valid_optional_frequency(estimated_f0_hz, nyquist=nyquist)
 
-    return lowpassed
+    lower_anchor = f0 * 3.0 if f0 > 0.0 else centroid * 0.45
+    safe_low = min(max(lower_anchor, 80.0), nyquist * 0.45)
+    presence_center = _clamp(centroid * 1.6, safe_low, nyquist * 0.82)
+    presence_width = _clamp(
+        bandwidth * 0.75,
+        max(presence_center * 0.25, 120.0),
+        max(presence_center * 1.1, 180.0),
+    )
+    detail_anchor = _clamp(
+        max(rolloff, presence_center + presence_width * 0.35),
+        presence_center,
+        nyquist * 0.92,
+    )
+    detail_width = max(presence_width * 0.5, 120.0)
+
+    return {
+        "presence_center": presence_center,
+        "presence_width": presence_width,
+        "detail_anchor": detail_anchor,
+        "detail_width": detail_width,
+    }
+
+
+def _valid_frequency(value: float | None, *, fallback: float, nyquist: float) -> float:
+    if value is None or not np.isfinite(value) or value <= 0.0:
+        return _clamp(fallback, 1.0, nyquist)
+
+    return _clamp(float(value), 1.0, nyquist)
+
+
+def _valid_optional_frequency(value: float | None, *, nyquist: float) -> float:
+    if value is None or not np.isfinite(value) or value <= 0.0:
+        return 0.0
+
+    return _clamp(float(value), 1.0, nyquist)
+
+
+def _smooth_high_shelf(
+    frequencies: np.ndarray,
+    *,
+    anchor: float,
+    width: float,
+) -> np.ndarray:
+    exponent = np.clip(-(frequencies - anchor) / max(width, 1.0), -60.0, 60.0)
+    return 1.0 / (1.0 + np.exp(exponent))
+
+
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    return max(min_value, min(max_value, value))
