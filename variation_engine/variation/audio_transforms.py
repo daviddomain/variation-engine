@@ -63,6 +63,7 @@ def apply_brightness(
     if audio.shape[0] == 0 or amount == 0.0:
         return audio.copy()
 
+    active_start, active_end = _active_sample_span(audio)
     shaping = _brightness_shaping_parameters(
         sample_rate=sample_rate,
         estimated_f0_hz=estimated_f0_hz,
@@ -70,7 +71,8 @@ def apply_brightness(
         spectral_bandwidth=spectral_bandwidth,
         spectral_rolloff=spectral_rolloff,
     )
-    frequencies = np.fft.rfftfreq(audio.shape[0], d=1.0 / sample_rate)
+    active_audio = audio[active_start:active_end]
+    frequencies = np.fft.rfftfreq(active_audio.shape[0], d=1.0 / sample_rate)
     presence_offset = (frequencies - shaping["presence_center"]) / shaping["presence_width"]
     presence = np.exp(-0.5 * presence_offset**2)
     detail = _smooth_high_shelf(
@@ -86,8 +88,10 @@ def apply_brightness(
         gain_db = clamped_amount * (8.0 * presence + 2.5 * detail)
 
     gain = (10.0 ** (gain_db / 20.0)).reshape(-1, 1)
-    spectrum = np.fft.rfft(audio.astype(np.float64, copy=False), axis=0)
-    transformed = np.fft.irfft(spectrum * gain, n=audio.shape[0], axis=0)
+    spectrum = np.fft.rfft(active_audio.astype(np.float64, copy=False), axis=0)
+    transformed_active = np.fft.irfft(spectrum * gain, n=active_audio.shape[0], axis=0)
+    transformed = audio.astype(np.float64, copy=True)
+    transformed[active_start:active_end] = transformed_active
 
     return transformed.astype(audio.dtype, copy=False)
 
@@ -217,6 +221,19 @@ def _brightness_shaping_parameters(
         "detail_anchor": detail_anchor,
         "detail_width": detail_width,
     }
+
+
+def _active_sample_span(audio: np.ndarray) -> tuple[int, int]:
+    channel_peak = np.max(np.abs(audio), axis=1)
+    peak = float(np.max(channel_peak)) if channel_peak.size else 0.0
+    if peak <= 0.0:
+        return (0, audio.shape[0])
+
+    active_indices = np.flatnonzero(channel_peak >= peak * 1e-4)
+    if active_indices.size == 0:
+        return (0, audio.shape[0])
+
+    return (int(active_indices[0]), int(active_indices[-1]) + 1)
 
 
 def _valid_frequency(value: float | None, *, fallback: float, nyquist: float) -> float:

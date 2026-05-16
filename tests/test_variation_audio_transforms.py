@@ -90,6 +90,10 @@ class VariationAudioTransformsTest(unittest.TestCase):
 
     def test_brightness_positive_and_negative_change_audio_differently(self) -> None:
         audio = _plucked_like_audio(sample_rate=8000)
+        presence_band = _analysis_presence_band(
+            spectral_centroid=938.0,
+            spectral_bandwidth=1304.0,
+        )
 
         brighter = apply_brightness(
             audio,
@@ -110,8 +114,24 @@ class VariationAudioTransformsTest(unittest.TestCase):
             spectral_rolloff=1851.0,
         )
 
-        self.assertFalse(np.allclose(brighter, audio))
-        self.assertFalse(np.allclose(darker, audio))
+        original_presence_energy = _band_energy(
+            audio,
+            sample_rate=8000,
+            frequency_range=presence_band,
+        )
+        brighter_presence_energy = _band_energy(
+            brighter,
+            sample_rate=8000,
+            frequency_range=presence_band,
+        )
+        darker_presence_energy = _band_energy(
+            darker,
+            sample_rate=8000,
+            frequency_range=presence_band,
+        )
+
+        self.assertGreater(brighter_presence_energy, original_presence_energy * 1.2)
+        self.assertLess(darker_presence_energy, original_presence_energy * 0.8)
         self.assertFalse(np.allclose(brighter, darker))
 
     def test_brightness_uses_analysis_aware_parameters(self) -> None:
@@ -154,6 +174,33 @@ class VariationAudioTransformsTest(unittest.TestCase):
         self.assertEqual(transformed.shape, audio.shape)
         self.assertTrue(np.all(np.isfinite(transformed)))
         self.assertFalse(np.allclose(transformed, audio))
+
+    def test_brightness_preserves_leading_silence_and_transient_position(self) -> None:
+        audio = _plucked_like_transient_with_leading_silence(sample_rate=8000)
+        input_first_active = _first_active_index(audio)
+        input_peak_index = _peak_index(audio)
+
+        for amount in (0.5, -0.5):
+            with self.subTest(amount=amount):
+                transformed = apply_brightness(
+                    audio,
+                    sample_rate=8000,
+                    amount=amount,
+                    estimated_f0_hz=124.0,
+                    spectral_centroid=938.0,
+                    spectral_bandwidth=1304.0,
+                    spectral_rolloff=1851.0,
+                )
+
+                self.assertEqual(transformed.shape, audio.shape)
+                self.assertLessEqual(float(np.max(np.abs(transformed[:256]))), 1e-7)
+                self.assertLessEqual(float(np.max(np.abs(transformed[352:]))), 1e-7)
+                self.assertEqual(_first_active_index(transformed), input_first_active)
+                self.assertEqual(_peak_index(transformed), input_peak_index)
+                self.assertGreater(
+                    _window_energy(transformed, input_first_active, length=32),
+                    _window_energy(audio, input_first_active, length=32) * 0.5,
+                )
 
     def test_decay_envelope_preserves_length_and_changes_tail(self) -> None:
         audio = np.ones((24, 2), dtype=np.float32)
@@ -211,6 +258,62 @@ def _plucked_like_audio(sample_rate: int) -> np.ndarray:
         + 0.06 * np.sin(2 * np.pi * 2300.0 * time)
     )
     return np.column_stack([left, right]).astype(np.float32)
+
+
+def _plucked_like_transient_with_leading_silence(sample_rate: int) -> np.ndarray:
+    audio = np.zeros((1024, 1), dtype=np.float32)
+    transient_start = 256
+    time = np.arange(96, dtype=np.float64) / sample_rate
+    envelope = np.exp(-time * 80.0)
+    transient = envelope * (
+        0.8 * np.sin(2 * np.pi * 124.0 * time)
+        + 0.4 * np.sin(2 * np.pi * 1500.0 * time)
+    )
+    audio[transient_start : transient_start + transient.shape[0], 0] = transient
+    return audio
+
+
+def _analysis_presence_band(
+    *,
+    spectral_centroid: float,
+    spectral_bandwidth: float,
+) -> tuple[float, float]:
+    presence_center = spectral_centroid * 1.6
+    presence_width = spectral_bandwidth * 0.75
+    return (
+        max(1.0, presence_center - presence_width),
+        presence_center + presence_width,
+    )
+
+
+def _band_energy(
+    audio: np.ndarray,
+    *,
+    sample_rate: int,
+    frequency_range: tuple[float, float],
+) -> float:
+    frequencies = np.fft.rfftfreq(audio.shape[0], d=1.0 / sample_rate)
+    spectrum = np.fft.rfft(audio.astype(np.float64, copy=False), axis=0)
+    power = np.mean(np.abs(spectrum) ** 2, axis=1)
+    low_frequency, high_frequency = frequency_range
+    band_mask = (frequencies >= low_frequency) & (frequencies <= high_frequency)
+    return float(np.sum(power[band_mask]))
+
+
+def _first_active_index(audio: np.ndarray) -> int:
+    envelope = np.max(np.abs(audio), axis=1)
+    peak = float(np.max(envelope))
+    active_indices = np.flatnonzero(envelope >= peak * 1e-4)
+    return int(active_indices[0])
+
+
+def _peak_index(audio: np.ndarray) -> int:
+    return int(np.argmax(np.max(np.abs(audio), axis=1)))
+
+
+def _window_energy(audio: np.ndarray, start: int, *, length: int) -> float:
+    window = audio[start : start + length]
+    return float(np.sum(window.astype(np.float64) ** 2))
 
 
 def _analysis() -> AnalysisResult:
